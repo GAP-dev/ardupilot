@@ -27,6 +27,7 @@
 
 #define NOOPLOOP_HEADER                     0x55    // message header
 #define NOOPLOOP_FUNCTION_MARK_NODE_FRAME2  4
+#define NOOPLOOP_NODE_FRAME2_FRAMELEN_MIN   120     // fixed fields plus checksum
 #define NOOPLOOP_NODE_FRAME2_FRAMELEN_MAX   4096    // frames should be less than 4k bytes
 #define NOOPLOOP_NODE_FRAME2_SYSTIME        6       // start of 4 bytes holding system time in ms
 #define NOOPLOOP_NODE_FRAME2_PRECISION_X    10      // start of 1 byte holding precision in m*100 in x axis
@@ -145,7 +146,8 @@ AP_Beacon_Nooploop::MsgType AP_Beacon_Nooploop::parse_byte(uint8_t b)
     case ParseState::LEN_H:
         // extract and sanity check frame length
         _frame_len = UINT16_VALUE(b, _msgbuf[2]);
-        if (_frame_len > NOOPLOOP_NODE_FRAME2_FRAMELEN_MAX) {
+        if (_frame_len < NOOPLOOP_NODE_FRAME2_FRAMELEN_MIN ||
+            _frame_len > NOOPLOOP_NODE_FRAME2_FRAMELEN_MAX) {
             _state = ParseState::HEADER;
         } else {
             _msgbuf[3] = b;
@@ -195,6 +197,12 @@ AP_Beacon_Nooploop::MsgType AP_Beacon_Nooploop::parse_byte(uint8_t b)
 
 void AP_Beacon_Nooploop::parse_node_frame2()
 {
+    const uint8_t valid_nodes = _msgbuf[NOOPLOOP_NODE_FRAME2_VALID_NODES];
+    const uint16_t node_data_end = NOOPLOOP_NODE_FRAME2_NODE_BLOCK + uint16_t(valid_nodes) * 13U;
+    if (node_data_end > ARRAY_SIZE(_msgbuf) || node_data_end >= _frame_len) {
+        return;
+    }
+
     // a message has been received
     _last_update_ms = AP_HAL::millis();
 
@@ -214,7 +222,6 @@ void AP_Beacon_Nooploop::parse_node_frame2()
 
     set_vehicle_position(pos_m, pos_err);
 
-    const uint8_t valid_nodes = _msgbuf[NOOPLOOP_NODE_FRAME2_VALID_NODES];
     for (uint8_t i = 0; i < valid_nodes; i++) {
         uint16_t offset = NOOPLOOP_NODE_FRAME2_NODE_BLOCK + i * 13;
         uint8_t id = _msgbuf[offset+1]; //nooploop id starts from 0, increments clockwise, 0 -> 1 define Y axis.
