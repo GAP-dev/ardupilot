@@ -24,7 +24,7 @@
 
 #if AP_BEACON_MARVELMIND_ENABLED
 
-#define AP_BEACON_MARVELMIND_BUF_SIZE 255
+#define AP_BEACON_MARVELMIND_BUF_SIZE 262 // maximum payload plus header and CRC
 
 class AP_Beacon_Marvelmind : public AP_Beacon_Backend
 {
